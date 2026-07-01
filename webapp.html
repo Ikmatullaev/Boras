@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Boras Security — WebApp</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1419;
+            color: #e7e7e7;
+            min-height: 100vh;
+            padding: 12px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #1f2937;
+            margin-bottom: 16px;
+        }
+        .header h1 { font-size: 18px; font-weight: 600; }
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #10b981; box-shadow: 0 0 8px #10b981;
+        }
+        .status-dot.offline { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+        .camera-card {
+            background: #1a1f2e;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .camera-card h2 { font-size: 16px; margin-bottom: 8px; }
+        .camera-info { font-size: 12px; color: #9ca3af; margin-bottom: 12px; }
+        .stream-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            aspect-ratio: 16/9;
+        }
+        .stream-container img {
+            width: 100%; height: 100%; object-fit: contain;
+        }
+        .stream-overlay {
+            position: absolute; top: 8px; left: 8px;
+            background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px;
+            font-size: 11px; color: #fff;
+        }
+        .ptz-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            max-width: 240px;
+            margin: 0 auto 12px;
+        }
+        .ptz-btn {
+            background: #2a3142;
+            color: #e7e7e7;
+            border: none;
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 22px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .ptz-btn:active { background: #3b82f6; }
+        .ptz-btn.empty { visibility: hidden; }
+        .zoom-row {
+            display: flex; gap: 6px; margin-bottom: 12px;
+        }
+        .zoom-btn {
+            flex: 1; background: #2a3142; color: #e7e7e7;
+            border: none; border-radius: 8px; padding: 12px;
+            font-size: 14px; cursor: pointer;
+        }
+        .zoom-btn:active { background: #3b82f6; }
+        .ai-toggle {
+            width: 100%; background: #10b981; color: #fff;
+            border: none; border-radius: 8px; padding: 14px;
+            font-size: 15px; font-weight: 600; cursor: pointer;
+            margin-bottom: 12px;
+        }
+        .ai-toggle.off { background: #ef4444; }
+        .settings-section {
+            background: #1a1f2e; border-radius: 12px; padding: 12px;
+            margin-bottom: 12px;
+        }
+        .settings-section h3 {
+            font-size: 14px; color: #9ca3af; margin-bottom: 10px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .setting-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 0; border-bottom: 1px solid #2a3142;
+        }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-label { font-size: 13px; }
+        .setting-value {
+            font-size: 13px; color: #9ca3af; font-family: monospace;
+        }
+        .camera-tabs {
+            display: flex; gap: 6px; overflow-x: auto;
+            padding-bottom: 8px; margin-bottom: 12px;
+        }
+        .camera-tab {
+            background: #2a3142; color: #9ca3af;
+            border: none; border-radius: 16px; padding: 6px 14px;
+            font-size: 12px; white-space: nowrap; cursor: pointer;
+        }
+        .camera-tab.active { background: #3b82f6; color: #fff; }
+        .toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: #1f2937; color: #fff; padding: 10px 20px;
+            border-radius: 8px; font-size: 13px; opacity: 0;
+            transition: opacity 0.3s; pointer-events: none; z-index: 1000;
+        }
+        .toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📹 Boras Security</h1>
+        <div id="statusDot" class="status-dot"></div>
+    </div>
+
+    <div id="cameraTabs" class="camera-tabs"></div>
+
+    <div id="cameraView">
+        <div class="camera-card">
+            <h2 id="cameraName">—</h2>
+            <div class="camera-info">
+                <span id="cameraId">—</span> · <span id="cameraMode">—</span>
+            </div>
+            <div class="stream-container">
+                <img id="streamImg" src="" alt="Loading...">
+                <div class="stream-overlay" id="streamOverlay">LIVE</div>
+            </div>
+            <div class="ptz-pad">
+                <button class="ptz-btn empty"></button>
+                <button class="ptz-btn" onclick="ptzMove('up')">▲</button>
+                <button class="ptz-btn empty"></button>
+                <button class="ptz-btn" onclick="ptzMove('left')">◄</button>
+                <button class="ptz-btn" onclick="ptzMove('stop')">⏹</button>
+                <button class="ptz-btn" onclick="ptzMove('right')">►</button>
+                <button class="ptz-btn empty"></button>
+                <button class="ptz-btn" onclick="ptzMove('down')">▼</button>
+                <button class="ptz-btn empty"></button>
+            </div>
+            <div class="zoom-row">
+                <button class="zoom-btn" onclick="ptzZoom('out')">🔍-</button>
+                <button class="zoom-btn" onclick="ptzZoom('stop')">⏹</button>
+                <button class="zoom-btn" onclick="ptzZoom('in')">🔍+</button>
+            </div>
+            <button id="aiToggle" class="ai-toggle" onclick="toggleGuard()">
+                AI: ON
+            </button>
+        </div>
+
+        <div class="settings-section">
+            <h3>Настройки</h3>
+            <div class="setting-row">
+                <span class="setting-label">⏱ Timeout (s)</span>
+                <span class="setting-value" id="set-timeout">5</span>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">🏠 Возврат в центр</span>
+                <span class="setting-value" id="set-home">ON</span>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">🔍 Сброс зума</span>
+                <span class="setting-value" id="set-zoom">ON</span>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">⌛ Settle delay (s)</span>
+                <span class="setting-value" id="set-settle">2</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // ─── Telegram WebApp SDK ───────────────────────────────────────
+        const tg = window.Telegram?.WebApp || {};
+        if (tg.ready) tg.ready();
+        if (tg.expand) tg.expand();
+
+        // ─── State ─────────────────────────────────────────────────────
+        let currentCameraId = null;
+        let cameras = [];
+        let pollInterval = null;
+
+        // ─── API helpers (use same Basic auth as main panel) ───────────
+        async function apiGet(path) {
+            const resp = await fetch(path);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return resp.json();
+        }
+        async function apiPost(path) {
+            const resp = await fetch(path, { method: 'POST' });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return resp.json();
+        }
+
+        // ─── Toast ─────────────────────────────────────────────────────
+        function toast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 2000);
+        }
+
+        // ─── Load cameras list ─────────────────────────────────────────
+        async function loadCameras() {
+            try {
+                const data = await apiGet('/api/cameras');
+                cameras = data.cameras || [];
+                if (cameras.length === 0) {
+                    toast('Нет камер');
+                    return;
+                }
+                renderTabs();
+                if (!currentCameraId && cameras.length > 0) {
+                    currentCameraId = cameras[0].camera_id;
+                }
+                selectCamera(currentCameraId);
+            } catch (e) {
+                console.error('loadCameras:', e);
+                toast('Ошибка загрузки камер');
+            }
+        }
+
+        function renderTabs() {
+            const tabs = document.getElementById('cameraTabs');
+            tabs.innerHTML = cameras.map(c => `
+                <button class="camera-tab ${c.camera_id === currentCameraId ? 'active' : ''}"
+                        onclick="selectCamera('${c.camera_id}')">
+                    ${c.name} ${c.auto_guard ? '🟢' : '🔴'}
+                </button>
+            `).join('');
+        }
+
+        function selectCamera(camId) {
+            currentCameraId = camId;
+            renderTabs();
+            const cam = cameras.find(c => c.camera_id === camId);
+            if (!cam) return;
+            document.getElementById('cameraName').textContent = cam.name;
+            document.getElementById('cameraId').textContent = `ID: ${cam.camera_id}`;
+            document.getElementById('cameraMode').textContent = `Режим: ${cam.mode}`;
+            document.getElementById('streamImg').src = `/stream`;
+            updateAIToggle(cam.auto_guard);
+            loadSettings(camId);
+        }
+
+        function updateAIToggle(aiOn) {
+            const btn = document.getElementById('aiToggle');
+            btn.textContent = aiOn ? '🟢 AI: ВКЛ' : '🔴 AI: ВЫКЛ';
+            btn.classList.toggle('off', !aiOn);
+        }
+
+        // ─── PTZ control ───────────────────────────────────────────────
+        async function ptzMove(direction) {
+            try {
+                await apiGet(`/api/move?direction=${direction}`);
+                toast(`🎯 ${direction}`);
+            } catch (e) { toast('❌ Ошибка PTZ'); }
+        }
+        async function ptzZoom(direction) {
+            try {
+                await apiGet(`/api/zoom?direction=${direction}`);
+                toast(`🔍 ${direction}`);
+            } catch (e) { toast('❌ Ошибка zoom'); }
+        }
+        async function toggleGuard() {
+            try {
+                const r = await apiPost('/api/toggle_guard');
+                const on = r.status === 'on';
+                updateAIToggle(on);
+                toast(on ? '🟢 AI включён' : '🔴 AI выключен');
+            } catch (e) { toast('❌ Ошибка'); }
+        }
+
+        // ─── Settings ──────────────────────────────────────────────────
+        async function loadSettings(camId) {
+            try {
+                const data = await apiGet(`/api/settings?camera_id=${camId}`);
+                const s = data.settings || {};
+                document.getElementById('set-timeout').textContent =
+                    s.manual_override_timeout ?? 5;
+                document.getElementById('set-home').textContent =
+                    s.return_to_home_after_manual === false ? 'OFF' : 'ON';
+                document.getElementById('set-zoom').textContent =
+                    s.zoom_reset_on_home === false ? 'OFF' : 'ON';
+                document.getElementById('set-settle').textContent =
+                    s.home_settle_delay ?? 2;
+            } catch (e) { console.error('settings:', e); }
+        }
+
+        // ─── Poll status ───────────────────────────────────────────────
+        async function pollStatus() {
+            try {
+                const data = await apiGet('/api/status');
+                document.getElementById('statusDot').classList.toggle(
+                    'offline', data.camera_status !== 'live'
+                );
+                document.getElementById('cameraMode').textContent =
+                    `Режим: ${data.mode}`;
+                updateAIToggle(data.auto_guard);
+            } catch (e) { /* silent */ }
+        }
+
+        // ─── Init ──────────────────────────────────────────────────────
+        loadCameras();
+        pollInterval = setInterval(pollStatus, 3000);
+    </script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# Pinned to known-working versions for reproducible installs.
+# Bump deliberately and re-test the Auto-Guard tracking behavior after any upgrade
+# (ultralytics/torch occasionally change inference output shapes between majors).
+fastapi==0.138.0
+uvicorn==0.49.0
+opencv-python==4.13.0.92
+ultralytics==8.4.77
+torch==2.12.1
+torchvision==0.27.1
+requests==2.34.2
+# ─── Part B: Telegram bot dependencies ───────────────────────────────────
+# aiogram 3.x — async Telegram Bot API framework (interactive bot, WebApp,
+# inline keyboards, long-polling). Only required if CRANE_BOT_ENABLED=true.
+aiogram==3.13.1
+# redis — optional, only needed for multi-instance deployments where
+# multiple Boras processes share bot state. Single-instance uses SQLite.
+# redis==5.0.8

@@ -1,0 +1,56 @@
+# docker-compose.yml for Boras AI Security System
+#
+# Usage:
+#   1. Create .env file with your credentials (see .env.example)
+#   2. docker compose up
+#   3. Open http://localhost:8000
+
+services:
+  boras:
+    build: .
+    container_name: boras
+    restart: unless-stopped  # auto-restart on crash, but not on manual stop
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Mount test_videos for video batch testing
+      - ./test_videos:/app/test_videos
+      # Persist YOLO weights across restarts (avoid re-download)
+      - yolov8_weights:/root/.config/Ultralytics
+      # Persist SQLite databases (events + bot state + camera settings)
+      # across container restarts. Without this, authorized chats and
+      # camera settings would be lost on every docker compose down.
+      - boras_data:/app/data
+    environment:
+      # Use persistent SQLite path inside the mounted volume
+      - CRANE_BOT_DB_PATH=/app/data/boras_bot.db
+      - CRANE_EVENT_DB_PATH=/app/data/events.db
+    networks:
+      - boras_net
+    # Camera IP must be reachable from container's network —
+    # if camera is on host LAN, use network_mode: host (Linux only)
+    # network_mode: host  # uncomment on Linux if camera can't be reached
+
+  # ─── Redis (optional — only for multi-instance bot state) ─────────────
+  # Uncomment if you run multiple Boras instances that share one Telegram bot.
+  # Single-instance deployments use SQLite and don't need Redis.
+  #
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: boras_redis
+  #   restart: unless-stopped
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - boras_net
+
+volumes:
+  yolov8_weights:
+  boras_data:
+  # redis_data:
+
+networks:
+  boras_net:
+    driver: bridge

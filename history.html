@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boras — Event History</title>
+<style>
+  body {
+    margin: 0; padding: 20px;
+    background: #0a0a0a; color: #fff;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px; padding-bottom: 15px;
+    border-bottom: 1px solid #2e2e2e; flex-wrap: wrap; gap: 12px;
+  }
+  h1 { margin: 0; font-size: 18px; font-weight: 500; letter-spacing: 0.04em; }
+  .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  select, button, input {
+    background: #1a1a1a; color: #fff; border: 1px solid #3a3a3a;
+    padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 13px;
+    cursor: pointer;
+  }
+  button:hover { background: #2a2a2a; }
+  button.danger { border-color: #ff3b30; color: #ff3b30; }
+  .back-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: inherit; font-size: 13px;
+    color: #fff; text-decoration: none;
+    background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 4px;
+    padding: 6px 12px; cursor: pointer;
+    transition: background 150ms;
+  }
+  .back-btn:hover { background: #2a2a2a; }
+  .stats {
+    display: flex; gap: 20px; margin-bottom: 20px;
+    padding: 15px; background: #141414; border-radius: 6px;
+    border: 1px solid #2e2e2e; flex-wrap: wrap;
+  }
+  .stat-item { display: flex; flex-direction: column; }
+  .stat-label { font-size: 11px; color: #8a8a8a; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-value { font-size: 20px; font-weight: 600; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    text-align: left; padding: 10px 12px;
+    border-bottom: 1px solid #2e2e2e; font-size: 13px;
+  }
+  th {
+    color: #8a8a8a; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.05em; font-size: 11px;
+    position: sticky; top: 0; background: #0a0a0a;
+  }
+  tr:hover { background: #141414; }
+  .event-name {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-size: 11px; font-weight: 500;
+  }
+  .name-target_detected { background: rgba(255,59,48,0.15); color: #ff3b30; }
+  .name-target_lost { background: rgba(48,209,88,0.15); color: #30d158; }
+  .name-error { background: rgba(255,159,10,0.15); color: #ff9f0a; }
+  .name-disconnected { background: rgba(255,159,10,0.15); color: #ff9f0a; }
+  .name-state_changed { background: rgba(10,132,255,0.15); color: #0a84ff; }
+  .name-manual_override { background: rgba(10,132,255,0.15); color: #0a84ff; }
+  .name-connected { background: rgba(48,209,88,0.15); color: #30d158; }
+  .name-frame_received { background: rgba(138,138,138,0.1); color: #8a8a8a; }
+  .name-move_started { background: rgba(138,138,138,0.1); color: #8a8a8a; }
+  .name-move_finished { background: rgba(138,138,138,0.1); color: #8a8a8a; }
+  .name-command_throttled { background: rgba(138,138,138,0.1); color: #8a8a8a; }
+  .empty { text-align: center; padding: 40px; color: #8a8a8a; }
+  a { color: #0a84ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .back-link { font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>EVENT HISTORY</h1>
+    <div class="controls">
+      <a href="/" class="back-btn" title="Back to operator console">◀ Console</a>
+      <select id="filterName">
+        <option value="">All events</option>
+        <option value="target_detected">target_detected</option>
+        <option value="target_lost">target_lost</option>
+        <option value="error">error</option>
+        <option value="disconnected">disconnected</option>
+        <option value="connected">connected</option>
+        <option value="state_changed">state_changed</option>
+        <option value="manual_override">manual_override</option>
+        <option value="manual_override_expired">manual_override_expired</option>
+        <option value="command_throttled">command_throttled</option>
+        <option value="move_started">move_started</option>
+        <option value="move_finished">move_finished</option>
+        <option value="frame_received">frame_received</option>
+      </select>
+      <select id="limit">
+        <option value="50">Last 50</option>
+        <option value="100" selected>Last 100</option>
+        <option value="250">Last 250</option>
+        <option value="500">Last 500</option>
+        <option value="1000">Last 1000</option>
+      </select>
+      <button id="refreshBtn">Refresh</button>
+      <button id="autoRefreshBtn">Auto: OFF</button>
+      <button id="clearBtn" class="danger">Clear all</button>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat-item">
+      <span class="stat-label">Total events</span>
+      <span class="stat-value" id="totalCount">0</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Detections</span>
+      <span class="stat-value" id="detectionCount">0</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Errors</span>
+      <span class="stat-value" id="errorCount">0</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Showing</span>
+      <span class="stat-value" id="showingCount">0</span>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 60px">ID</th>
+        <th style="width: 180px">Time</th>
+        <th style="width: 200px">Event</th>
+        <th>Detail</th>
+      </tr>
+    </thead>
+    <tbody id="eventsBody">
+      <tr><td colspan="4" class="empty">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let autoRefresh = false;
+  let autoRefreshTimer = null;
+
+  function fmtTime(iso) {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString();
+    } catch { return iso; }
+  }
+
+  function nameClass(name) {
+    return 'event-name name-' + name;
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch('/api/history?limit=1');
+      const data = await res.json();
+      $('totalCount').textContent = data.total;
+
+      const detRes = await fetch('/api/history?limit=1&name=target_detected');
+      const detData = await detRes.json();
+      $('detectionCount').textContent = detData.total;
+
+      const errRes = await fetch('/api/history?limit=1&name=error');
+      const errData = await errRes.json();
+      $('errorCount').textContent = errData.total;
+    } catch (e) {
+      console.error('Stats load failed:', e);
+    }
+  }
+
+  async function loadEvents() {
+    const name = $('filterName').value;
+    const limit = $('limit').value;
+    const url = `/api/history?limit=${limit}` + (name ? `&name=${name}` : '');
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      $('showingCount').textContent = data.returned;
+
+      const tbody = $('eventsBody');
+      if (!data.events || data.events.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">No events found</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.events.map(ev => `
+        <tr>
+          <td>${ev.id}</td>
+          <td>${fmtTime(ev.created_at)}</td>
+          <td><span class="${nameClass(ev.name)}">${ev.name}</span></td>
+          <td>${ev.detail || ''}</td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      console.error('Events load failed:', e);
+    }
+  }
+
+  async function clearAll() {
+    if (!confirm('Delete ALL event history? This cannot be undone.')) return;
+    try {
+      const res = await fetch('/api/history', { method: 'DELETE' });
+      const data = await res.json();
+      alert(`Deleted ${data.deleted} events`);
+      loadEvents();
+      loadStats();
+    } catch (e) {
+      alert('Clear failed: ' + e);
+    }
+  }
+
+  function toggleAutoRefresh() {
+    autoRefresh = !autoRefresh;
+    $('autoRefreshBtn').textContent = 'Auto: ' + (autoRefresh ? 'ON' : 'OFF');
+    if (autoRefresh) {
+      autoRefreshTimer = setInterval(() => { loadEvents(); loadStats(); }, 5000);
+    } else {
+      clearInterval(autoRefreshTimer);
+    }
+  }
+
+  $('refreshBtn').addEventListener('click', () => { loadEvents(); loadStats(); });
+  $('autoRefreshBtn').addEventListener('click', toggleAutoRefresh);
+  $('clearBtn').addEventListener('click', clearAll);
+  $('filterName').addEventListener('change', loadEvents);
+  $('limit').addEventListener('change', loadEvents);
+
+  loadEvents();
+  loadStats();
+</script>
+</body>
+</html>

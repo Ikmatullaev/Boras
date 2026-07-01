@@ -1,0 +1,53 @@
+# Docker ignore — files not copied into Docker image
+# Keeps image small and avoids leaking secrets
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.egg-info/
+
+# Virtual environments
+venv/
+ai_env/
+.venv/
+env/
+
+# Secrets — NEVER include in Docker image
+.env
+config_local.py
+
+# YOLO weights (downloaded at build time)
+*.pt
+
+# Test artifacts
+test_videos/annotated/
+test_videos/results.csv
+test_videos/results.json
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Docs (not needed at runtime)
+*.md
+GIT_PUSH_GUIDE.md
+INSTALL.md
